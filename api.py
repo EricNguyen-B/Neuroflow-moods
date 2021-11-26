@@ -134,5 +134,51 @@ def login():
     
     return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
 
+@app.route('/mood', methods=['GET'])
+@token_required
+def get_all_moods(current_user):
+    moods = Mood.query.filter_by(user_id=current_user.id).all()
+    output = []
+    for mood in moods:
+        mood_data = {}
+        mood_data['id'] = mood.id
+        mood_data['text'] = mood.text
+        mood_data['timestamp'] = mood.timestamp
+        output.append(mood_data)
+    return jsonify({'moods': output})
+
+# @app.route('/mood/<mood_id>', methods=['GET'])
+# @token_required
+# def get_one_mood(current_user, mood_id):
+#     mood = Mood.query.filter_by(id=mood_id, mood_id=current_user.id).first()
+#     if not mood:
+#         return jsonify({'message': 'No mood found!'})
+#     mood_data = {}
+#     mood_data['id'] = mood.id
+#     mood_data['text'] = mood.text
+#     mood_data['timestamp'] = mood.timestamp
+#     return jsonify(mood_data)
+
+
+@app.route('/mood', methods=['POST'])
+@token_required
+def submit_mood(current_user):
+    data = request.get_json()
+    new_mood = Mood(text=data['text'], timestamp = datetime.datetime.utcnow(),user_id=current_user.id)
+    db.session.add(new_mood)
+    db.session.commit()
+    return jsonify({'message': "Mood submitted"})
+
+
+
+@app.route('/mood/<mood_id>', methods=['DELETE'])
+@token_required
+def delete_mood(current_user, mood_id):
+    return ''
+
+
+
+
+
 if __name__ == '__main__':
     app.run(debug=True)
