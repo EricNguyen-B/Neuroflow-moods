@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy, Model
-from flask_jwt import jwt
+# from flask_jwt import jwt
+import jwt
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
@@ -86,6 +87,21 @@ def delete_user(public_id):
     db.session.commit()
     return jsonify({'message': 'The user has been deleted'})
 
+@app.route('/login')
+def login():
+    auth = request.authorization
+    if not auth or not auth.username or not auth.password:
+        return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
+    user = User.query.filter_by(name=auth.username).first()
 
+    if not user:
+        return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
+
+    if check_password_hash(user.password, auth.password):
+        token = jwt.encode({'public_id': user.public_id, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
+        return jsonify({'token': token.decode('UTF-8')})
+    
+    return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
+    
 if __name__ == '__main__':
     app.run(debug=True)
