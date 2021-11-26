@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy, Model
-# from flask_jwt import jwt
 import jwt
+import time
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
@@ -16,6 +16,8 @@ db_uri = 'sqlite:///{}'.format(db_path)
 app.config['SQLALCHEMY_DATABASE_URI']  = db_uri
 
 db = SQLAlchemy(app)
+
+most_recent_mood_time = time.time()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -129,7 +131,7 @@ def login():
         return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
 
     if check_password_hash(user.password, auth.password):
-        token = jwt.encode({'public_id': user.public_id, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
+        token = jwt.encode({'public_id': user.public_id, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=60)}, app.config['SECRET_KEY'])
         return jsonify({'token': token.decode('UTF-8')})
     
     return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
@@ -147,18 +149,12 @@ def get_all_moods(current_user):
         output.append(mood_data)
     return jsonify({'moods': output})
 
-# @app.route('/mood/<mood_id>', methods=['GET'])
-# @token_required
-# def get_one_mood(current_user, mood_id):
-#     mood = Mood.query.filter_by(id=mood_id, mood_id=current_user.id).first()
-#     if not mood:
-#         return jsonify({'message': 'No mood found!'})
-#     mood_data = {}
-#     mood_data['id'] = mood.id
-#     mood_data['text'] = mood.text
-#     mood_data['timestamp'] = mood.timestamp
-#     return jsonify(mood_data)
-
+# @app.before_request
+# def before(current_user):
+#     curr_time = time.time()
+#     if (curr_time > most_recent_mood_time) and (curr_time < curr_time + 120):
+#         user = User.query.filter_by(user_id=current_user.id).first()
+#         user.streak += 1
 
 @app.route('/mood', methods=['POST'])
 @token_required
@@ -169,16 +165,10 @@ def submit_mood(current_user):
     db.session.commit()
     return jsonify({'message': "Mood submitted"})
 
-
-
 @app.route('/mood/<mood_id>', methods=['DELETE'])
 @token_required
 def delete_mood(current_user, mood_id):
     return ''
-
-
-
-
 
 if __name__ == '__main__':
     app.run(debug=True)
